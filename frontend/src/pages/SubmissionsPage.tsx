@@ -24,7 +24,11 @@ export const SubmissionsPage = () => {
         return userFiltered.filter((s) =>
             s.companyName.toLowerCase().includes(term) ||
             s.marketingName.toLowerCase().includes(term) ||
-            s.certificateType.toLowerCase().includes(term)
+            s.certificateType.toLowerCase().includes(term) ||
+            (s.selectedSub?.name || '').toLowerCase().includes(term) ||
+            (s.selectedKlasifikasi?.name || '').toLowerCase().includes(term) ||
+            (s.selectedSubKlasifikasi || '').toLowerCase().includes(term) ||
+            (s.selectedKualifikasi?.name || '').toLowerCase().includes(term)
         );
     }, [list, isAllView, user, pagination.searchTerm]);
 
@@ -72,6 +76,10 @@ export const SubmissionsPage = () => {
                                     <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-slate-400">Nama Perusahaan</th>
                                     <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-slate-400 hidden sm:table-cell">Marketing</th>
                                     <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-slate-400 hidden md:table-cell">Jenis</th>
+                                    <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-slate-400 hidden lg:table-cell">Asosiasi</th>
+                                    <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-slate-400 hidden lg:table-cell">Klasifikasi</th>
+                                    <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-slate-400 hidden xl:table-cell">Sub Klasifikasi</th>
+                                    <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-slate-400 hidden xl:table-cell">Kualifikasi</th>
                                     <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-slate-400 hidden lg:table-cell">Tanggal</th>
                                     <th className="text-right py-3 px-4 font-semibold text-gray-600 dark:text-slate-400">Keuntungan</th>
                                     <th className="text-right py-3 px-4 font-semibold text-gray-600 dark:text-slate-400">Aksi</th>
@@ -84,6 +92,10 @@ export const SubmissionsPage = () => {
                                         <td className="py-3 px-4 font-medium text-gray-800 dark:text-white">{capitalizeWords(s.companyName)}</td>
                                         <td className="py-3 px-4 text-gray-600 dark:text-slate-400 hidden sm:table-cell">{s.marketingName}</td>
                                         <td className="py-3 px-4 text-gray-600 dark:text-slate-400 hidden md:table-cell">{s.certificateType}</td>
+                                        <td className="py-3 px-4 text-gray-600 dark:text-slate-400 hidden lg:table-cell">{s.selectedSub?.name || '-'}</td>
+                                        <td className="py-3 px-4 text-gray-600 dark:text-slate-400 hidden lg:table-cell">{s.selectedKlasifikasi?.name || '-'}</td>
+                                        <td className="py-3 px-4 text-gray-600 dark:text-slate-400 hidden xl:table-cell">{s.selectedSubKlasifikasi || '-'}</td>
+                                        <td className="py-3 px-4 text-gray-600 dark:text-slate-400 hidden xl:table-cell">{s.selectedKualifikasi?.name || '-'}</td>
                                         <td className="py-3 px-4 text-gray-600 dark:text-slate-400 hidden lg:table-cell">{formatDate(s.inputDate)}</td>
                                         <td className="py-3 px-4 text-right font-semibold text-green-700 dark:text-emerald-400">{formatCurrency(s.keuntungan)}</td>
                                         <td className="py-3 px-4 text-right">
@@ -92,7 +104,7 @@ export const SubmissionsPage = () => {
                                     </tr>
                                 ))}
                                 {paged.length === 0 && (
-                                    <tr><td colSpan={7} className="text-center py-8 text-gray-400 dark:text-slate-500">Belum ada data</td></tr>
+                                    <tr><td colSpan={11} className="text-center py-8 text-gray-400 dark:text-slate-500">Belum ada data</td></tr>
                                 )}
                             </tbody>
                         </table>

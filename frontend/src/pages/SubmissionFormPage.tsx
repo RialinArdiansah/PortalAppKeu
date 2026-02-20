@@ -45,6 +45,7 @@ export const SubmissionFormPage = () => {
     const [selectedCert, setSelectedCert] = useState<Certificate | null>(null);
 
     // Step 2: Form state
+    const [companyPrefix, setCompanyPrefix] = useState('PT.');
     const [companyName, setCompanyName] = useState('');
     const [marketingName, setMarketingName] = useState('');
     const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]);
@@ -82,10 +83,17 @@ export const SubmissionFormPage = () => {
             case 'konstruksi':
                 sub = certs.sbuKonstruksiData;
                 klas = certs.konstruksiKlasifikasiData;
-                if (selectedSubId === 'p3sm-id') {
-                    kual = certs.p3smKualifikasiData; bl = certs.p3smBiayaLainnyaData; bs = certs.p3smBiayaSetorData;
-                } else if (selectedSubId === 'gapeknas-id') {
-                    kual = certs.gapeknasKualifikasiData; bl = certs.gapeknasBiayaLainnyaData; bs = certs.gapeknasBiayaSetorData;
+                // Match by name since backend uses real UUIDs, not hardcoded strings
+                {
+                    const selectedSubName = sub.find((s) => s.id === selectedSubId)?.name?.toUpperCase() ?? '';
+                    if (selectedSubName === 'P3SM') {
+                        kual = certs.p3smKualifikasiData; bl = certs.p3smBiayaLainnyaData; bs = certs.p3smBiayaSetorData;
+                    } else if (selectedSubName === 'GAPEKNAS') {
+                        kual = certs.gapeknasKualifikasiData; bl = certs.gapeknasBiayaLainnyaData; bs = certs.gapeknasBiayaSetorData;
+                    } else if (selectedSubId) {
+                        // Any other asosiasi: use P3SM data as fallback or leave empty
+                        kual = certs.p3smKualifikasiData; bl = certs.p3smBiayaLainnyaData; bs = certs.p3smBiayaSetorData;
+                    }
                 }
                 break;
             case 'konsultan':
@@ -110,6 +118,7 @@ export const SubmissionFormPage = () => {
             kualifikasiOptions: kual, biayaLainnyaOptions: bl, biayaSetorOptions: bs,
         };
     }, [sbuType, selectedSubId, selectedKlasifikasiId, certs]);
+
 
     const selectedKualifikasi = kualifikasiOptions.find((k) => k.id === selectedKualifikasiId) || null;
     const selectedBiayaLainnya = biayaLainnyaOptions.find((b) => b.id === selectedBiayaLainnyaId) || null;
@@ -146,7 +155,7 @@ export const SubmissionFormPage = () => {
         const selectedKlas = klasifikasiOptions.find((k) => k.id === selectedKlasifikasiId) || null;
 
         await dispatch(createSubmission({
-            companyName: capitalizeWords(companyName),
+            companyName: capitalizeWords(`${companyPrefix} ${companyName}`.trim()),
             marketingName,
             inputDate,
             submittedById: user?.id || '',
@@ -237,8 +246,30 @@ export const SubmissionFormPage = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-gray-700 dark:text-slate-300 font-medium mb-1">Nama Perusahaan</label>
-                            <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)}
-                                className={inputCls} placeholder="PT. / CV." required />
+                            <div className="flex rounded-xl overflow-hidden border border-gray-300 dark:border-slate-600 focus-within:ring-2 focus-within:ring-indigo-500 transition">
+                                <select
+                                    value={companyPrefix}
+                                    onChange={(e) => setCompanyPrefix(e.target.value)}
+                                    className="px-3 py-3 bg-gray-100 dark:bg-slate-600 text-gray-800 dark:text-white font-semibold border-r border-gray-300 dark:border-slate-500 focus:outline-none text-sm"
+                                >
+                                    <option>PT.</option>
+                                    <option>CV.</option>
+                                    <option>UD.</option>
+                                    <option>PD.</option>
+                                    <option>Firma</option>
+                                    <option>Koperasi</option>
+                                    <option>Yayasan</option>
+                                    <option>-</option>
+                                </select>
+                                <input
+                                    type="text"
+                                    value={companyName}
+                                    onChange={(e) => setCompanyName(e.target.value)}
+                                    className="flex-1 px-4 py-3 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none"
+                                    placeholder="Nama perusahaan..."
+                                    required
+                                />
+                            </div>
                         </div>
                         <div>
                             <label className="block text-gray-700 dark:text-slate-300 font-medium mb-1">Marketing</label>

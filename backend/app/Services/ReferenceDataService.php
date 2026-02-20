@@ -91,41 +91,14 @@ class ReferenceDataService
         DB::transaction(function () use ($sbuTypeSlug, $data) {
             $sbuType = SbuType::where('slug', $sbuTypeSlug)->firstOrFail();
 
-            // Map frontend keys to [category, asosiasiName]
-            $mappings = $this->getMappings($sbuTypeSlug);
+            // ─── STEP 1: Wipe all existing data for this sbu_type ─────────────────
+            // Delete BiayaItems first (they reference asosiasi, so must go before asosiasi)
+            BiayaItem::where('sbu_type_id', $sbuType->id)->delete();
+            Klasifikasi::where('sbu_type_id', $sbuType->id)->delete();
+            Asosiasi::where('sbu_type_id', $sbuType->id)->delete();
 
-            foreach ($mappings as $frontendKey => [$category, $asosiasiName]) {
-                if (!isset($data[$frontendKey]))
-                    continue;
-
-                $asosiasiId = null;
-                if ($asosiasiName) {
-                    $asosiasi = Asosiasi::where('sbu_type_id', $sbuType->id)->where('name', $asosiasiName)->first();
-                    $asosiasiId = $asosiasi?->id;
-                }
-
-                // Delete existing items for this category + asosiasi
-                BiayaItem::where('sbu_type_id', $sbuType->id)
-                    ->where('category', $category)
-                    ->when($asosiasiId, fn($q) => $q->where('asosiasi_id', $asosiasiId))
-                    ->when(!$asosiasiId, fn($q) => $q->whereNull('asosiasi_id'))
-                    ->delete();
-
-                // Insert new items
-                foreach ($data[$frontendKey] as $item) {
-                    BiayaItem::create([
-                        'sbu_type_id' => $sbuType->id,
-                        'asosiasi_id' => $asosiasiId,
-                        'category' => $category,
-                        'name' => $item['name'],
-                        'biaya' => $item['biaya'] ?? 0,
-                    ]);
-                }
-            }
-
-            // Handle asosiasi data (sbuData)
+            // ─── STEP 2: Recreate asosiasi (sbuData) ─────────────────────────────
             if (isset($data['sbuData'])) {
-                Asosiasi::where('sbu_type_id', $sbuType->id)->delete();
                 foreach ($data['sbuData'] as $item) {
                     Asosiasi::create([
                         'sbu_type_id' => $sbuType->id,
@@ -135,9 +108,8 @@ class ReferenceDataService
                 }
             }
 
-            // Handle klasifikasi data
+            // ─── STEP 3: Recreate klasifikasi ─────────────────────────────────────
             if (isset($data['klasifikasiData'])) {
-                Klasifikasi::where('sbu_type_id', $sbuType->id)->delete();
                 foreach ($data['klasifikasiData'] as $item) {
                     Klasifikasi::create([
                         'sbu_type_id' => $sbuType->id,
@@ -148,8 +120,36 @@ class ReferenceDataService
                     ]);
                 }
             }
+
+            // ─── STEP 4: Re-insert BiayaItems using fresh asosiasi IDs ───────────
+            $mappings = $this->getMappings($sbuTypeSlug);
+
+            foreach ($mappings as $frontendKey => [$category, $asosiasiName]) {
+                if (!isset($data[$frontendKey]))
+                    continue;
+
+                // Resolve asosiasi ID from the freshly-created records
+                $asosiasiId = null;
+                if ($asosiasiName) {
+                    $asosiasi = Asosiasi::where('sbu_type_id', $sbuType->id)
+                        ->where('name', $asosiasiName)
+                        ->first();
+                    $asosiasiId = $asosiasi?->id;
+                }
+
+                foreach ($data[$frontendKey] as $item) {
+                    BiayaItem::create([
+                        'sbu_type_id' => $sbuType->id,
+                        'asosiasi_id' => $asosiasiId,
+                        'category' => $category,
+                        'name' => $item['name'],
+                        'biaya' => $item['biaya'] ?? 0,
+                    ]);
+                }
+            }
         });
     }
+
 
     private function getMappings(string $slug): array
     {

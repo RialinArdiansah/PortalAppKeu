@@ -48,6 +48,7 @@ const inputSmCls = "flex-grow px-3 py-2 border border-gray-300 dark:border-slate
 export const SbuAdminModal = ({ isOpen, onClose, sbuType }: Props) => {
     const dispatch = useAppDispatch();
     const certs = useAppSelector((s) => s.certificates);
+    const token = useAppSelector((s) => s.auth.token);
 
     const [tempSubs, setTempSubs] = useState<SbuData[]>([]);
     const [tempKlasifikasi, setTempKlasifikasi] = useState<KlasifikasiData[]>([]);
@@ -232,7 +233,10 @@ export const SbuAdminModal = ({ isOpen, onClose, sbuType }: Props) => {
             const item = getBiayaList(cat).find((b) => b.id === id);
             if (item) setBiayaEditForm({ id, name: item.name, biaya: item.biaya, category: cat });
         } else {
-            setBiayaEditForm({ id: null, name: '', biaya: 0, category: cat });
+            // For biayaSetor: auto-pick first kualifikasi name as default
+            const defaultName = cat === 'biayaSetor' && tempKualifikasi.length > 0
+                ? tempKualifikasi[0].name : '';
+            setBiayaEditForm({ id: null, name: defaultName, biaya: 0, category: cat });
         }
     };
 
@@ -265,16 +269,29 @@ export const SbuAdminModal = ({ isOpen, onClose, sbuType }: Props) => {
             if (sbuType === 'konstruksi') {
                 body.sbuData = tempSubs;
                 body.klasifikasiData = tempKlasifikasi;
+
+                // Determine which asosiasi is currently selected
                 const sub = tempSubs.find((s) => s.id === selectedSubId);
                 const isGapeknas = sub?.name.toUpperCase().includes('GAPEKNAS');
+
+                // For the SELECTED asosiasi, use the edited temp data
+                // For the OTHER asosiasi, use the original Redux store data to preserve it
                 if (isGapeknas) {
                     body.gapeknasKualifikasiData = tempKualifikasi;
                     body.gapeknasBiayaSetorData = tempBiayaSetor;
                     body.gapeknasBiayaLainnyaData = tempBiayaLainnya;
+                    // Preserve P3SM data from store
+                    body.p3smKualifikasiData = certs.p3smKualifikasiData;
+                    body.p3smBiayaSetorData = certs.p3smBiayaSetorData;
+                    body.p3smBiayaLainnyaData = certs.p3smBiayaLainnyaData;
                 } else {
                     body.p3smKualifikasiData = tempKualifikasi;
                     body.p3smBiayaSetorData = tempBiayaSetor;
                     body.p3smBiayaLainnyaData = tempBiayaLainnya;
+                    // Preserve GAPEKNAS data from store
+                    body.gapeknasKualifikasiData = certs.gapeknasKualifikasiData;
+                    body.gapeknasBiayaSetorData = certs.gapeknasBiayaSetorData;
+                    body.gapeknasBiayaLainnyaData = certs.gapeknasBiayaLainnyaData;
                 }
             } else if (sbuType === 'konsultan') {
                 body.sbuData = tempSubs;
@@ -298,11 +315,15 @@ export const SbuAdminModal = ({ isOpen, onClose, sbuType }: Props) => {
                 body.biayaLainnyaData = tempBiayaLainnya;
             }
 
-            await fetch('/api/certificates/reference-data', {
+            const res = await fetch('/api/certificates/reference-data', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
                 body: JSON.stringify(body),
             });
+            if (!res.ok) throw new Error(`Server error: ${res.status}`);
 
             await dispatch(fetchCertificates());
             showToast('Semua data berhasil disimpan!');
@@ -510,17 +531,36 @@ export const SbuAdminModal = ({ isOpen, onClose, sbuType }: Props) => {
                 {biayaEditForm && (
                     <div className="bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl p-4 space-y-3 animate-in">
                         <h4 className="font-semibold text-gray-700 dark:text-white">{biayaEditForm.id ? 'Edit' : 'Tambah'} Data</h4>
+
+                        {/* For Biaya Setor: pick name from kualifikasi dropdown */}
+                        {biayaEditForm.category === 'biayaSetor' && tempKualifikasi.length > 0 ? (
+                            <div>
+                                <label className="block text-gray-600 dark:text-slate-400 text-sm mb-1">Pilih Kualifikasi</label>
+                                <select
+                                    value={biayaEditForm.name}
+                                    onChange={(e) => setBiayaEditForm({ ...biayaEditForm, name: e.target.value })}
+                                    className={inputSmCls}
+                                >
+                                    <option value="">-- Pilih Kualifikasi --</option>
+                                    {tempKualifikasi.map((k) => (
+                                        <option key={k.id} value={k.name}>{k.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        ) : (
+                            <div>
+                                <label className="block text-gray-600 dark:text-slate-400 text-sm mb-1">Nama</label>
+                                <input
+                                    type="text"
+                                    value={biayaEditForm.name}
+                                    onChange={(e) => setBiayaEditForm({ ...biayaEditForm, name: e.target.value })}
+                                    className={inputSmCls}
+                                />
+                            </div>
+                        )}
+
                         <div>
-                            <label className="block text-gray-600 dark:text-slate-400 text-sm mb-1">Nama</label>
-                            <input
-                                type="text"
-                                value={biayaEditForm.name}
-                                onChange={(e) => setBiayaEditForm({ ...biayaEditForm, name: e.target.value })}
-                                className={inputSmCls}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-gray-600 dark:text-slate-400 text-sm mb-1">Biaya (Rp)</label>
+                            <label className="block text-gray-600 dark:text-slate-400 text-sm mb-1">Biaya Setor (Rp)</label>
                             <input
                                 type="number"
                                 value={biayaEditForm.biaya}
